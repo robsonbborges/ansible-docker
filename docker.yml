@@ -1,0 +1,81 @@
+---
+- name: Install Docker
+  hosts: 192.168.91.156
+  remote_user: robson1
+  become: yes
+  vars:
+    CTOP_VERSION: "0.7.3"
+    DOCKER_COMPOSE_VERSION: "1.25.1"
+    DOCKER_PACKAGES:
+      - apt-transport-https
+      - ca-certificates
+      - curl
+      - gnupg-agent
+      - software-properties-common
+
+  tasks:
+  - name: Update apt packages
+    apt:
+      update_cache: "yes"
+      force_apt_get: "yes"
+
+  - name: Install pacotes necessarios para Docker
+    apt:
+      name: "{{ DOCKER_PACKAGES }}"
+      state: present
+      force_apt_get: "yes"
+
+  - name: Adicionar Docker GPG apt Key
+    apt_key:
+      url: https://download.docker.com/linux/ubuntu/gpg
+      state: present
+
+  - name: Salvar versao atual do Ubuntu para uma variavel
+    shell: lsb_release -cs
+    register: ubuntu_version
+
+  - name: dicionar repositorio Docker
+    apt_repository:
+      repo: "deb [arch=amd64] https://download.docker.com/linux/ubuntu {{ ubuntu_version.stdout }} stable"
+      state: present
+
+  - name: Update apt packages
+    apt:
+      update_cache: "yes"
+      force_apt_get: "yes"
+
+  - name: Instalar Docker
+    apt:
+      name: "docker-ce"
+      state: present
+      force_apt_get: "yes"
+
+  - name: Testar Docker com exmeplo hello world
+    shell: "docker run hello-world"
+    register: hello_world_output
+
+  - name: Mostrar resultado do hello world
+    debug:
+      msg: "Container Output: {{hello_world_output.stdout}}"
+
+  - name: Criar grupo Docker
+    group:
+      name: "docker"
+      state: present
+
+  - name: Instalar Docker Compose
+    get_url:
+      url: https://github.com/docker/compose/releases/download/{{ DOCKER_COMPOSE_VERSION }}/docker-compose-Linux-x86_64
+      dest: "/usr/local/bin/docker-compose"
+      mode: 0755
+
+  - name: Instalar Ctop
+    get_url:
+      url: https://github.com/bcicen/ctop/releases/download/v{{ CTOP_VERSION }}/ctop-{{ CTOP_VERSION }}-linux-amd64
+      dest: "/usr/local/bin/ctop"
+      mode: 0755
+
+  - name: Reiniciar server
+    shell: "sleep 1 && reboot"
+    async: 1
+    poll: 0
